@@ -2,9 +2,9 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Interactive Atom Model</title>
+  <title>Interactive Atom AR Model</title>
 
-  <!-- model-viewer -->
+  <!-- model-viewer library -->
   <script type="module"
     src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js">
   </script>
@@ -48,6 +48,19 @@
       background-color: #1e40af;
     }
 
+    #arButton {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      padding: 12px 18px;
+      border-radius: 10px;
+      border: none;
+      background: #16a34a;
+      color: white;
+      font-size: 16px;
+      z-index: 5;
+    }
+
     #handVideo {
       position: fixed;
       right: 10px;
@@ -67,6 +80,7 @@
       font-size: 14px;
       margin: 6px;
       color: #333;
+      padding: 0 10px;
     }
   </style>
 </head>
@@ -81,13 +95,21 @@
     ios-src="assets/atom.usdz"
     alt="3D Atom Model"
     camera-controls
+    touch-action="pan-y"
     auto-rotate
     ar
-    ar-modes="webxr scene-viewer quick-look"
+    ar-placement="floor"
+    ar-scale="auto"
+    ar-modes="scene-viewer quick-look webxr"
     shadow-intensity="1"
     exposure="1"
     scale="1 1 1"
     camera-orbit="0deg 75deg 105%">
+
+    <button slot="ar-button" id="arButton">
+      View in AR
+    </button>
+
   </model-viewer>
 
   <div class="controls">
@@ -97,7 +119,7 @@
     <button id="handBtn" onclick="toggleHandControl()">Hand Control: Off</button>
   </div>
 
-  <p id="status">Touch screen controls are active.</p>
+  <p id="status">Touch screen controls are active. Tap “View in AR” on a supported phone.</p>
 
   <video id="handVideo" autoplay playsinline muted></video>
 
@@ -124,14 +146,14 @@
 
     window.makeBigger = function () {
       currentScale += 0.2;
+      if (currentScale > 3.0) currentScale = 3.0;
       applyScale();
     };
 
     window.makeSmaller = function () {
-      if (currentScale > 0.3) {
-        currentScale -= 0.2;
-        applyScale();
-      }
+      currentScale -= 0.2;
+      if (currentScale < 0.3) currentScale = 0.3;
+      applyScale();
     };
 
     window.resetModel = function () {
@@ -146,7 +168,7 @@
 
       statusText.innerText = handControlEnabled
         ? "Hand control is active. Move your index finger left/right to rotate. Pinch to zoom."
-        : "Touch screen controls are active.";
+        : "Touch screen controls are active. Tap “View in AR” on a supported phone.";
     };
 
     window.toggleHandControl = async function () {
@@ -225,7 +247,8 @@
         webcamStream = null;
       }
 
-      statusText.innerText = "Touch screen controls are active.";
+      statusText.innerText =
+        "Touch screen controls are active. Tap “View in AR” on a supported phone.";
     }
 
     async function predictWebcam() {
@@ -245,20 +268,14 @@
           const thumbTip = hand[4];
           const indexTip = hand[8];
 
-          // -----------------------------
-          // ROTATION
-          // Move index finger left/right
-          // -----------------------------
+          /* ROTATION:
+             Move index finger left/right to rotate the atom */
           const xPosition = indexTip.x;
-
-          // Because selfie camera is mirrored, this feels more natural
           currentRotation = (0.5 - xPosition) * 360;
           applyRotation();
 
-          // -----------------------------
-          // SCALE
-          // Pinch thumb and index finger
-          // -----------------------------
+          /* SCALE:
+             Pinch thumb and index finger to zoom in/out */
           const dx = thumbTip.x - indexTip.x;
           const dy = thumbTip.y - indexTip.y;
           const pinchDistance = Math.sqrt(dx * dx + dy * dy);
