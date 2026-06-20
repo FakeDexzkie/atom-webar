@@ -4,36 +4,49 @@
   <meta charset="UTF-8">
   <title>Atom WebAR Project</title>
 
-  <!-- A-Frame Library -->
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
 
-  <!-- AR.js Library for A-Frame -->
+  <!-- A-Frame Extras: needed for glb/gltf animation -->
+  <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.5.4/dist/aframe-extras.min.js"></script>
+
+  <!-- AR.js -->
   <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar.js"></script>
 </head>
 
 <body style="margin: 0; overflow: hidden;">
 
-  <a-scene embedded arjs>
+  <a-scene
+    embedded
+    arjs="sourceType: webcam; debugUIEnabled: false;">
 
-    <!-- Asset Manager -->
     <a-assets>
       <a-asset-item id="atomModel" src="assets/atom.glb"></a-asset-item>
     </a-assets>
 
-    <!-- Hiro Marker -->
+    <!-- Use Hiro marker -->
     <a-marker preset="hiro">
 
       <!-- 3D Atom Model -->
       <a-entity
         gltf-model="#atomModel"
-        position="0 0 0"
+        position="0 0.8 0"
         rotation="0 0 0"
-        scale="0.5 0.5 0.5">
+        scale="1.5 1.5 1.5"
+        animation-mixer="clip: *; loop: repeat">
       </a-entity>
+
+      <!-- Label -->
+      <a-text
+        value="Atom Model"
+        position="-1 1.8 0"
+        rotation="-90 0 0"
+        scale="1 1 1"
+        align="center">
+      </a-text>
 
     </a-marker>
 
-    <!-- Camera -->
     <a-entity camera></a-entity>
 
   </a-scene>
