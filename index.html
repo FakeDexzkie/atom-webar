@@ -2,9 +2,8 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Interactive Atom AR Model</title>
+  <title>Markerless Atom AR</title>
 
-  <!-- model-viewer library -->
   <script type="module"
     src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js">
   </script>
@@ -15,72 +14,31 @@
       font-family: Arial, sans-serif;
       background: #f4f4f4;
       text-align: center;
-      overflow-x: hidden;
     }
 
     h2 {
-      margin: 12px;
+      margin: 15px;
     }
 
     model-viewer {
       width: 100%;
-      height: 68vh;
+      height: 75vh;
       background-color: #ffffff;
     }
 
     .controls {
-      margin-top: 10px;
-      padding: 8px;
+      margin-top: 15px;
     }
 
     button {
-      padding: 10px 14px;
-      margin: 4px;
-      font-size: 15px;
+      padding: 10px 18px;
+      margin: 5px;
+      font-size: 16px;
       border: none;
       border-radius: 8px;
       background-color: #2563eb;
       color: white;
       cursor: pointer;
-    }
-
-    button:hover {
-      background-color: #1e40af;
-    }
-
-    #arButton {
-      position: absolute;
-      bottom: 16px;
-      right: 16px;
-      padding: 12px 18px;
-      border-radius: 10px;
-      border: none;
-      background: #16a34a;
-      color: white;
-      font-size: 16px;
-      z-index: 5;
-    }
-
-    #handVideo {
-      position: fixed;
-      right: 10px;
-      bottom: 10px;
-      width: 160px;
-      height: 120px;
-      border-radius: 10px;
-      border: 2px solid #2563eb;
-      object-fit: cover;
-      transform: scaleX(-1);
-      display: none;
-      background: #000;
-      z-index: 10;
-    }
-
-    #status {
-      font-size: 14px;
-      margin: 6px;
-      color: #333;
-      padding: 0 10px;
     }
   </style>
 </head>
@@ -95,216 +53,44 @@
     ios-src="assets/atom.usdz"
     alt="3D Atom Model"
     camera-controls
-    touch-action="pan-y"
     auto-rotate
     ar
-    ar-placement="floor"
-    ar-scale="auto"
-    ar-modes="scene-viewer quick-look webxr"
+    ar-modes="webxr scene-viewer quick-look"
     shadow-intensity="1"
     exposure="1"
-    scale="1 1 1"
-    camera-orbit="0deg 75deg 105%">
-
-    <button slot="ar-button" id="arButton">
-      View in AR
-    </button>
-
+    scale="1 1 1">
   </model-viewer>
 
   <div class="controls">
     <button onclick="makeBigger()">Zoom In</button>
     <button onclick="makeSmaller()">Zoom Out</button>
     <button onclick="resetModel()">Reset</button>
-    <button id="handBtn" onclick="toggleHandControl()">Hand Control: Off</button>
   </div>
 
-  <p id="status">Touch screen controls are active. Tap “View in AR” on a supported phone.</p>
-
-  <video id="handVideo" autoplay playsinline muted></video>
-
-  <script type="module">
-    import {
-      HandLandmarker,
-      FilesetResolver
-    } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
-
+  <script>
     const viewer = document.querySelector("#atomViewer");
-    const video = document.querySelector("#handVideo");
-    const statusText = document.querySelector("#status");
-    const handBtn = document.querySelector("#handBtn");
 
     let currentScale = 1;
-    let currentRotation = 0;
 
-    let handControlEnabled = false;
-    let handLandmarker = null;
-    let webcamStream = null;
-    let lastVideoTime = -1;
-
-    let previousPinchDistance = null;
-
-    window.makeBigger = function () {
+    function makeBigger() {
       currentScale += 0.2;
-      if (currentScale > 3.0) currentScale = 3.0;
-      applyScale();
-    };
+      viewer.scale = `${currentScale} ${currentScale} ${currentScale}`;
+    }
 
-    window.makeSmaller = function () {
-      currentScale -= 0.2;
-      if (currentScale < 0.3) currentScale = 0.3;
-      applyScale();
-    };
+    function makeSmaller() {
+      if (currentScale > 0.3) {
+        currentScale -= 0.2;
+        viewer.scale = `${currentScale} ${currentScale} ${currentScale}`;
+      }
+    }
 
-    window.resetModel = function () {
+    function resetModel() {
       currentScale = 1;
-      currentRotation = 0;
-      previousPinchDistance = null;
 
       viewer.scale = "1 1 1";
       viewer.cameraOrbit = "0deg 75deg 105%";
       viewer.cameraTarget = "auto auto auto";
       viewer.autoRotate = true;
-
-      statusText.innerText = handControlEnabled
-        ? "Hand control is active. Move your index finger left/right to rotate. Pinch to zoom."
-        : "Touch screen controls are active. Tap “View in AR” on a supported phone.";
-    };
-
-    window.toggleHandControl = async function () {
-      if (!handControlEnabled) {
-        await startHandControl();
-      } else {
-        stopHandControl();
-      }
-    };
-
-    function applyScale() {
-      viewer.scale = `${currentScale} ${currentScale} ${currentScale}`;
-    }
-
-    function applyRotation() {
-      viewer.cameraOrbit = `${currentRotation}deg 75deg 105%`;
-    }
-
-    async function createHandLandmarker() {
-      const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
-      );
-
-      handLandmarker = await HandLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath:
-            "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
-          delegate: "GPU"
-        },
-        runningMode: "VIDEO",
-        numHands: 1
-      });
-    }
-
-    async function startHandControl() {
-      try {
-        if (!handLandmarker) {
-          statusText.innerText = "Loading hand tracking...";
-          await createHandLandmarker();
-        }
-
-        webcamStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "user"
-          },
-          audio: false
-        });
-
-        video.srcObject = webcamStream;
-        video.style.display = "block";
-
-        handControlEnabled = true;
-        handBtn.innerText = "Hand Control: On";
-
-        viewer.autoRotate = false;
-
-        statusText.innerText =
-          "Hand control is active. Move your index finger left/right to rotate. Pinch to zoom.";
-
-        predictWebcam();
-      } catch (error) {
-        console.error(error);
-        statusText.innerText =
-          "Camera permission is needed for hand control. Touch controls still work.";
-      }
-    }
-
-    function stopHandControl() {
-      handControlEnabled = false;
-      handBtn.innerText = "Hand Control: Off";
-      video.style.display = "none";
-      previousPinchDistance = null;
-
-      if (webcamStream) {
-        webcamStream.getTracks().forEach(track => track.stop());
-        webcamStream = null;
-      }
-
-      statusText.innerText =
-        "Touch screen controls are active. Tap “View in AR” on a supported phone.";
-    }
-
-    async function predictWebcam() {
-      if (!handControlEnabled || !handLandmarker) return;
-
-      if (video.readyState >= 2 && video.currentTime !== lastVideoTime) {
-        lastVideoTime = video.currentTime;
-
-        const results = handLandmarker.detectForVideo(
-          video,
-          performance.now()
-        );
-
-        if (results.landmarks && results.landmarks.length > 0) {
-          const hand = results.landmarks[0];
-
-          const thumbTip = hand[4];
-          const indexTip = hand[8];
-
-          /* ROTATION:
-             Move index finger left/right to rotate the atom */
-          const xPosition = indexTip.x;
-          currentRotation = (0.5 - xPosition) * 360;
-          applyRotation();
-
-          /* SCALE:
-             Pinch thumb and index finger to zoom in/out */
-          const dx = thumbTip.x - indexTip.x;
-          const dy = thumbTip.y - indexTip.y;
-          const pinchDistance = Math.sqrt(dx * dx + dy * dy);
-
-          if (previousPinchDistance !== null) {
-            const difference = pinchDistance - previousPinchDistance;
-
-            if (Math.abs(difference) > 0.01) {
-              currentScale += difference * 3;
-
-              if (currentScale < 0.3) currentScale = 0.3;
-              if (currentScale > 3.0) currentScale = 3.0;
-
-              applyScale();
-            }
-          }
-
-          previousPinchDistance = pinchDistance;
-
-          statusText.innerText =
-            "Hand detected: index finger rotates, pinch zooms.";
-        } else {
-          previousPinchDistance = null;
-          statusText.innerText =
-            "Show your hand to the camera. Touch controls still work.";
-        }
-      }
-
-      requestAnimationFrame(predictWebcam);
     }
   </script>
 
